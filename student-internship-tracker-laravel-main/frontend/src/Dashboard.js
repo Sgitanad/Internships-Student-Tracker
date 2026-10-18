@@ -1,0 +1,647 @@
+import { useEffect, useState } from "react";
+import api from "./services/api";
+import { useNavigate } from "react-router-dom";
+import Sidebar from "./Sidebar";
+import Topbar from "./Topbar";
+
+function Dashboard() {
+    const navigate = useNavigate();
+    const [user, setUser] = useState(null);
+    const [stats, setStats] = useState(null);
+
+    useEffect(() => {
+        api.get("/auth/profile")
+            .then((res) => {
+                setUser(res.data.user);
+                return api.get("/auth/dashboard-stats");
+            })
+            .then((res) => setStats(res.data.stats))
+            .catch(() => {
+                localStorage.removeItem("token");
+                localStorage.removeItem("user");
+                navigate("/login");
+            });
+    }, [navigate]);
+
+    const handleLogout = () => {
+        api.post("/auth/logout").then(() => {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            navigate("/login");
+        }).catch(() => {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            navigate("/login");
+        });
+    };
+
+    const getRoleLabel = (role) => {
+        switch (role) {
+            case "ETUDIANT": return "Student";
+            case "ENCADRANT": return "Supervisor";
+            case "ADMIN": return "Administrator";
+            default: return role;
+        }
+    };
+
+    const getQuickActions = () => {
+        switch (user?.role) {
+            case "ETUDIANT":
+                return (
+                    <div className="quick-actions-grid">
+                        {/* Navigates to reports page */}
+                        <button className="qa-btn" onClick={() => navigate("/reports")}>
+                            <div className="qa-icon"><i className="bi bi-journal-plus"></i></div>
+                            <span>Submit Weekly Report</span>
+                        </button>
+                        <button className="qa-btn">
+                            <div className="qa-icon"><i className="bi bi-upload"></i></div>
+                            <span>Upload Documents</span>
+                        </button>
+                        <button className="qa-btn">
+                            <div className="qa-icon"><i className="bi bi-calendar-check"></i></div>
+                            <span>Track Attendance</span>
+                        </button>
+                        <button className="qa-btn">
+                            <div className="qa-icon"><i className="bi bi-chat-dots"></i></div>
+                            <span>Message Supervisor</span>
+                        </button>
+                    </div>
+                );
+            case "ENCADRANT":
+                return (
+                    <div className="quick-actions-grid">
+                        {/* Navigates to reports page */}
+                        <button className="qa-btn" onClick={() => navigate("/validation")}>
+                            <div className="qa-icon"><i className="bi bi-eye"></i></div>
+                            <span>Review Reports</span>
+                        </button>
+                        <button className="qa-btn">
+                            <div className="qa-icon"><i className="bi bi-patch-check"></i></div>
+                            <span>Validate Progress</span>
+                        </button>
+                        <button className="qa-btn">
+                            <div className="qa-icon"><i className="bi bi-students"></i></div>
+                            <span>View Students</span>
+                        </button>
+                        <button className="qa-btn">
+                            <div className="qa-icon"><i className="bi bi-clipboard-data"></i></div>
+                            <span>Generate Report</span>
+                        </button>
+                        
+                    </div>
+                );
+            case "ADMIN":
+                return (
+                    <div className="quick-actions-grid" style={{ gridTemplateColumns: 'repeat(1, 1fr)' }}>
+                        <button className="qa-btn" onClick={() => navigate("/admin/users")}>
+                            <div className="qa-icon"><i className="bi bi-people"></i></div>
+                            <span>Manage Users</span>
+                        </button>
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
+
+    const getStatutLabel = (statut) => {
+        switch (statut) {
+            case "BROUILLON": return "Draft";
+            case "SOUMIS": return "Submitted";
+            case "VALIDE": return "Accepted";
+            case "REJETE": return "Rejected";
+            default: return statut;
+        }
+    };
+
+    const getStatutColor = (statut) => {
+        switch (statut) {
+            case "BROUILLON": return "#94a3b8";
+            case "SOUMIS": return "#2563eb";
+            case "VALIDE": return "#16a34a";
+            case "REJETE": return "#dc2626";
+            default: return "#94a3b8";
+        }
+    };
+
+    if (!user) {
+        return (
+            <div className="dash-loading">
+                <div className="dash-spinner"></div>
+            </div>
+        );
+    }
+
+    const totalReports = stats
+        ? Object.values(stats.reports_by_status || {}).reduce((a, b) => a + b, 0)
+        : 0;
+
+    const maxBarValue = stats?.monthly_submissions
+        ? Math.max(...stats.monthly_submissions.map(m => m.count), 1)
+        : 1;
+
+    const role = stats?.role || user.role;
+
+    // Stats cards per role
+    const getStatsCards = () => {
+        if (role === "ADMIN") {
+            return [
+                { icon: "bi-people-fill", iconClass: "blue", label: "Total Users", value: stats?.total_users ?? "—" },
+                { icon: "bi-shield-fill", iconClass: "purple", label: "Admins", value: stats?.users_by_role?.admins ?? 0 },
+                { icon: "bi-person-badge-fill", iconClass: "green", label: "Supervisors", value: stats?.users_by_role?.supervisors ?? 0 },
+                { icon: "bi-mortarboard-fill", iconClass: "orange", label: "Students", value: stats?.users_by_role?.students ?? 0 },
+            ];
+        }
+        if (role === "ENCADRANT") {
+            return [
+                { icon: "bi-mortarboard", iconClass: "blue", label: "My Students", value: stats?.total_students ?? 0 },
+                { icon: "bi-file-earmark-text-fill", iconClass: "green", label: "Reports to Review", value: stats?.total_reports ?? 0 },
+                { icon: "bi-check-circle-fill", iconClass: "purple", label: "Accepted", value: stats?.reports_by_status?.accepte ?? 0 },
+                { icon: "bi-hourglass-split", iconClass: "orange", label: "Pending Review", value: ((stats?.reports_by_status?.soumis ?? 0) + (stats?.reports_by_status?.en_revision ?? 0)) },
+            ];
+        }
+        // Student
+        return [
+            { icon: "bi-journal-text", iconClass: "blue", label: "My Reports", value: stats?.total_reports ?? 0 },
+            { icon: "bi-check-circle-fill", iconClass: "green", label: "Accepted", value: stats?.reports_by_status?.accepte ?? 0 },
+            { icon: "bi-arrow-repeat", iconClass: "purple", label: "In Review", value: stats?.reports_by_status?.en_revision ?? 0 },
+            { icon: "bi-x-circle-fill", iconClass: "orange", label: "Rejected", value: stats?.reports_by_status?.refuse ?? 0 },
+        ];
+    };
+
+    // Chart cards per role
+    const showUsersByRole = role === "ADMIN";
+
+    // Real monthly submissions data from API
+    const realMonthlyData = stats?.monthly_submissions || [];
+    const maxRealMonthly = realMonthlyData.length > 0
+        ? Math.max(...realMonthlyData.map(m => m.count), 1)
+        : 1;
+
+    // Top supervisors by student count (simulated)
+    const topSupervisors = [
+        { name: "Prof. Hamza Ouali", students: 8, initials: "HO" },
+        { name: "Dr. Salma Idrissi", students: 6, initials: "SI" },
+        { name: "Prof. Yassine Alaoui", students: 5, initials: "YA" },
+        { name: "Dr. Fatima Zohra", students: 4, initials: "FZ" },
+    ];
+
+    return (
+        <div className="pro-dashboard">
+            {/* Sidebar */}
+            <Sidebar activePage="dashboard" />
+
+            {/* Main Content */}
+            <div className="pro-main-wrapper">
+                {/* Top Bar */}
+               <Topbar title="Dashboard" subtitle={`Welcome back — ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`} />
+
+                {/* Dashboard Content */}
+                <main className="pro-content">
+                    {/* Welcome Banner */}
+                    <section className="pro-welcome-banner">
+                        <div className="pro-welcome-text">
+                            <div className="pro-welcome-badge">
+                                <i className="bi bi-stars"></i>
+                                {getRoleLabel(user.role)} Panel
+                            </div>
+                            <h2>Hello, <span className="pro-name-highlight">{user.nom}</span></h2>
+                            <p>Here's an overview of your academic internship activity. Stay on track with your weekly reports and supervisor feedback.</p>
+                        </div>
+                        <div className="pro-welcome-graphic">
+                            <div className="pro-circle-1"></div>
+                            <div className="pro-circle-2"></div>
+                            <i className="bi bi-mortarboard-fill pro-welcome-icon"></i>
+                        </div>
+                    </section>
+
+                    {/* Stats Row */}
+                    <section style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
+                        {getStatsCards().map((card, idx) => (
+                            <div key={idx} className="pro-stat-card" style={{ background: "var(--card-bg, white)", borderRadius: 20, padding: "22px 24px", border: "1px solid var(--card-border, #e2e8f0)", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 2px 16px rgba(15,23,42,0.05)", transition: "all 0.2s" }}>
+                                <div className={`pro-stat-icon ${card.iconClass}`} style={{ width: 52, height: 52, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                    <i className={`bi ${card.icon}`} style={{ fontSize: 22 }}></i>
+                                </div>
+                                <div className="pro-stat-info" style={{ minWidth: 0 }}>
+                                    <span className="pro-stat-label" style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{card.label}</span>
+                                    <h3 className="pro-stat-value" style={{ margin: 0, fontSize: 26, fontWeight: 900, color: "var(--text-primary)", lineHeight: 1 }}>{card.value}</h3>
+                                </div>
+                            </div>
+                        ))}
+                    </section>
+
+                    {/* Quick Action Buttons */}
+                    <section className="pro-actions-row">
+                        {role === "ETUDIANT" && (
+                            <>
+                                <button className="pro-action-btn pro-action-primary" onClick={() => navigate("/supervision-request")}>
+                                    <i className="bi bi-person-plus"></i>
+                                    <div className="pro-action-text">
+                                        <span className="pro-action-title">Request Supervision</span>
+                                        <span className="pro-action-sub">Choose your supervisor</span>
+                                    </div>
+                                </button>
+                                <button className="pro-action-btn pro-action-secondary" onClick={() => navigate("/reports/new")}>
+                                    <i className="bi bi-file-earmark-plus"></i>
+                                    <div className="pro-action-text">
+                                        <span className="pro-action-title">Submit Report</span>
+                                        <span className="pro-action-sub">Upload a weekly report</span>
+                                    </div>
+                                </button>
+                            </>
+                        )}
+                        {role === "ENCADRANT" && (
+                            <button className="pro-action-btn pro-action-primary" onClick={() => navigate("/supervision-requests")}>
+                                <i className="bi bi-inbox-fill"></i>
+                                <div className="pro-action-text">
+                                    <span className="pro-action-title">Student Requests</span>
+                                    <span className="pro-action-sub">Review supervision applications</span>
+                                </div>
+                            </button>
+                        )}
+                        {role === "ADMIN" && (
+                            <button className="pro-action-btn pro-action-primary" onClick={() => navigate("/admin/users")}>
+                                <i className="bi bi-people-fill"></i>
+                                <div className="pro-action-text">
+                                    <span className="pro-action-title">Manage Users</span>
+                                    <span className="pro-action-sub">Manage accounts and roles</span>
+                                </div>
+                            </button>
+                        )}
+                    </section>
+
+                    {/* Charts Row */}
+                    <div>
+                        {/* Monthly Submissions Bar Chart */}
+                        {role !== "ADMIN" && (
+                        <section className="pro-card pro-chart-card">
+                            <div className="pro-card-header">
+                                <h3><i className="bi bi-bar-chart-fill"></i>
+                                    {role === "ETUDIANT" ? "My Monthly Submissions" : role === "ENCADRANT" ? "Monthly Submissions" : "Monthly Report Submissions"}
+                                </h3>
+                            </div>
+                            <div className="pro-card-body pro-chart-body">
+                                {stats && stats.monthly_submissions && stats.monthly_submissions.length > 0 ? (
+                                    <div className="bar-chart">
+                                        {stats.monthly_submissions.map((item, idx) => (
+                                            <div key={idx} className="bar-chart-col">
+                                                <div className="bar-chart-bar-wrap">
+                                                    <div
+                                                        className="bar-chart-bar"
+                                                        style={{ height: `${(item.count / maxBarValue) * 100}%` }}
+                                                    >
+                                                        <span className="bar-chart-value">{item.count}</span>
+                                                    </div>
+                                                </div>
+                                                <span className="bar-chart-label">{item.month}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="pro-chart-empty">
+                                        <i className="bi bi-bar-chart"></i>
+                                        <p>No submission data yet</p>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+                        )}
+
+                        {/* Reports by Status Donut */}
+                        {role !== "ADMIN" && (
+                        <section className="pro-card pro-chart-card">
+                            <div className="pro-card-header">
+                                <h3><i className="bi bi-pie-chart-fill"></i>Reports by Status</h3>
+                            </div>
+                            <div className="pro-card-body pro-chart-body">
+                                {stats && totalReports > 0 ? (
+                                    <div className="donut-chart-wrap">
+                                        <div className="donut-chart"
+                                            style={{
+                                                background: `conic-gradient(
+                                                    ${getStatutColor('BROUILLON')} 0% ${(stats.reports_by_status.BROUILLON / totalReports * 100).toFixed(1)}%,
+                                                    ${getStatutColor('SOUMIS')} ${(stats.reports_by_status.BROUILLON / totalReports * 100).toFixed(1)}% ${((stats.reports_by_status.BROUILLON + stats.reports_by_status.SOUMIS) / totalReports * 100).toFixed(1)}%,
+                                                    ${getStatutColor('VALIDE')} ${((stats.reports_by_status.BROUILLON + stats.reports_by_status.SOUMIS) / totalReports * 100).toFixed(1)}% ${((stats.reports_by_status.BROUILLON + stats.reports_by_status.SOUMIS + stats.reports_by_status.VALIDE) / totalReports * 100).toFixed(1)}%,
+                                                    ${getStatutColor('REJETE')} ${((stats.reports_by_status.BROUILLON + stats.reports_by_status.SOUMIS + stats.reports_by_status.VALIDE) / totalReports * 100).toFixed(1)}% 100%
+                                                )`
+                                            }}
+                                        >
+                                            <div className="donut-center">
+                                                <span className="donut-total">{totalReports}</span>
+                                                <span className="donut-label">Reports</span>
+                                            </div>
+                                        </div>
+                                        <div className="donut-legend">
+                                            {Object.entries(stats.reports_by_status || {}).map(([key, count]) => (
+                                                <div key={key} className="donut-legend-item">
+                                                    <span className="donut-legend-dot" style={{ background: getStatutColor(key) }}></span>
+                                                    <span className="donut-legend-label">{getStatutLabel(key)}</span>
+                                                    <span className="donut-legend-count">{count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="pro-chart-empty">
+                                        <i className="bi bi-pie-chart"></i>
+                                        <p>No report data yet</p>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+                        )}
+
+                        {/* Student: Supervision Status Card */}
+                        {role === "ETUDIANT" && (
+                            <section className="pro-card pro-chart-card">
+                                <div className="pro-card-header">
+                                    <h3><i className="bi bi-person-badge-fill"></i>Supervision Status</h3>
+                                </div>
+                                <div className="pro-card-body pro-chart-body">
+                                    {stats?.supervision_status === "ACCEPTE" ? (
+                                        <div className="sup-status-card sup-status-accepted">
+                                            <div className="sup-status-icon">
+                                                <i className="bi bi-check-circle-fill"></i>
+                                            </div>
+                                            <div className="sup-status-text">
+                                                <h4>Supervisor Assigned</h4>
+                                                <p>You have an active supervisor. You can submit reports for review.</p>
+                                            </div>
+                                            <button className="sup-status-action" onClick={() => navigate("/supervision-request")}>
+                                                <i className="bi bi-arrow-right-circle"></i>
+                                            </button>
+                                        </div>
+                                    ) : stats?.supervision_status === "EN_ATTENTE" ? (
+                                        <div className="sup-status-card sup-status-pending">
+                                            <div className="sup-status-icon">
+                                                <i className="bi bi-clock-fill"></i>
+                                            </div>
+                                            <div className="sup-status-text">
+                                                <h4>Request Pending</h4>
+                                                <p>Your supervision request is waiting for review.</p>
+                                            </div>
+                                            <button className="sup-status-action" onClick={() => navigate("/supervision-request")}>
+                                                <i className="bi bi-eye"></i>
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="sup-status-card sup-status-none">
+                                            <div className="sup-status-icon">
+                                                <i className="bi bi-person-dash-fill"></i>
+                                            </div>
+                                            <div className="sup-status-text">
+                                                <h4>No Supervisor</h4>
+                                                <p>You need to request a supervisor before submitting reports.</p>
+                                            </div>
+                                            <button className="sup-status-action" onClick={() => navigate("/supervision-request")}>
+                                                <i className="bi bi-plus-circle-fill"></i>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+                        )}
+
+                        {/* Supervisor: Quick Overview Card */}
+                        {role === "ENCADRANT" && (
+                            <section className="pro-card pro-chart-card">
+                                <div className="pro-card-header">
+                                    <h3><i className="bi bi-lightning-fill"></i>Quick Actions</h3>
+                                </div>
+                                <div className="pro-card-body pro-chart-body">
+                                    <div className="quick-actions-vertical">
+                                        <button className="qa-vertical-btn" onClick={() => navigate("/supervision-requests")}>
+                                            <i className="bi bi-inbox-fill"></i>
+                                            <div>
+                                                <strong>Review Requests</strong>
+                                                <span>Accept or reject student applications</span>
+                                            </div>
+                                        </button>
+                                        <button className="qa-vertical-btn" onClick={() => navigate("/validation")}>
+                                            <i className="bi bi-eye-fill"></i>
+                                            <div>
+                                                <strong>View Student Reports</strong>
+                                                <span>Check and validate submissions</span>
+                                            </div>
+                                        </button>
+                                        <button className="qa-vertical-btn" onClick={() => navigate("/reports")}>
+                                            <i className="bi bi-chat-left-text-fill"></i>
+                                            <div>
+                                                <strong>Give Feedback</strong>
+                                                <span>Comment on submitted reports</span>
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+                            </section>
+                        )}
+
+                        {/* Users by Role — Admin only */}
+                        {showUsersByRole && (
+                            <div className="admin-charts-grid">
+                                {/* Reports Trend Line Chart */}
+                                <section className="admin-chart-card">
+                                    <div className="admin-chart-header">
+                                        <div>
+                                            <h3>
+                                                <i className="bi bi-graph-up-arrow"></i>
+                                                Reports Over Time
+                                            </h3>
+                                            <p>Monthly submissions trend</p>
+                                        </div>
+                                        <div className="admin-chart-legend">
+                                            <span><span className="legend-dot blue"></span> Reports</span>
+                                        </div>
+                                    </div>
+                                    <div className="admin-chart-body">
+                                        {realMonthlyData.length > 0 ? (
+                                            <>
+                                                <div className="bar-chart">
+                                                    {realMonthlyData.map((m, i) => (
+                                                        <div key={i} className="bar-chart-col">
+                                                            <div className="bar-chart-bars">
+                                                                <div className="bar bar-blue" style={{ height: `${(m.count / maxRealMonthly) * 100}%` }}></div>
+                                                            </div>
+                                                            <span className="bar-chart-label">{m.month}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="admin-chart-stats">
+                                                    <div className="stat-item">
+                                                        <span className="stat-value blue">{realMonthlyData.reduce((sum, m) => sum + m.count, 0)}</span>
+                                                        <span className="stat-label">Total Reports</span>
+                                                    </div>
+                                                    <div className="stat-divider"></div>
+                                                    <div className="stat-item">
+                                                        <span className="stat-value green">{stats?.total_users ?? 0}</span>
+                                                        <span className="stat-label">Total Users</span>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="pro-chart-empty">
+                                                <i className="bi bi-bar-chart"></i>
+                                                <p>No submission data yet</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </section>
+
+                                {/* Users by Role donut */}
+                                <section className="admin-chart-card">
+                                    <div className="admin-chart-header">
+                                        <h3>
+                                            <i className="bi bi-pie-chart-fill"></i>
+                                            Users by Role
+                                        </h3>
+                                    </div>
+                                    <div className="admin-chart-body donut-layout">
+                                        <div className="donut-container">
+                                            <svg viewBox="0 0 100 100" className="donut-svg">
+                                                <circle cx="50" cy="50" r="38" fill="none" className="donut-bg" strokeWidth="14" />
+                                                <circle cx="50" cy="50" r="38" fill="none" className="donut-segment purple" strokeWidth="14" strokeDasharray={`${(stats?.users_by_role?.admins ?? 0) / (stats?.total_users || 1) * 238.76} 238.76`} />
+                                                <circle cx="50" cy="50" r="38" fill="none" className="donut-segment blue" strokeWidth="14" strokeDasharray={`${(stats?.users_by_role?.supervisors ?? 0) / (stats?.total_users || 1) * 238.76} 238.76`} strokeDashoffset={`${-((stats?.users_by_role?.admins ?? 0) / (stats?.total_users || 1)) * 238.76}`} />
+                                                <circle cx="50" cy="50" r="38" fill="none" className="donut-segment green" strokeWidth="14" strokeDasharray={`${(stats?.users_by_role?.students ?? 0) / (stats?.total_users || 1) * 238.76} 238.76`} strokeDashoffset={`${-(((stats?.users_by_role?.admins ?? 0) + (stats?.users_by_role?.supervisors ?? 0)) / (stats?.total_users || 1)) * 238.76}`} />
+                                            </svg>
+                                            <div className="donut-center">
+                                                <span className="donut-total">{stats?.total_users ?? 0}</span>
+                                                <span className="donut-label">Total</span>
+                                            </div>
+                                        </div>
+                                        <div className="donut-legend">
+                                            {[
+                                                { label: "Admins", color: "purple", count: stats?.users_by_role?.admins ?? 0 },
+                                                { label: "Supervisors", color: "blue", count: stats?.users_by_role?.supervisors ?? 0 },
+                                                { label: "Students", color: "green", count: stats?.users_by_role?.students ?? 0 },
+                                            ].map(item => (
+                                                <div key={item.label} className="donut-legend-item">
+                                                    <span className={`legend-dot ${item.color}`}></span>
+                                                    <span className="legend-label">{item.label}</span>
+                                                    <span className="legend-count">{item.count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </section>
+
+                                {/* Top Supervisors */}
+                                <section className="admin-chart-card">
+                                    <div className="admin-chart-header">
+                                        <h3>
+                                            <i className="bi bi-award-fill"></i>
+                                            Top Supervisors
+                                        </h3>
+                                    </div>
+                                    <div className="admin-chart-body">
+                                        {topSupervisors.slice(0, 4).map((sup, i) => (
+                                            <div key={i} className="supervisor-item">
+                                                <div className="supervisor-avatar">
+                                                    {sup.initials}
+                                                </div>
+                                                <div className="supervisor-info">
+                                                    <span className="supervisor-name">{sup.name}</span>
+                                                    <span className="supervisor-students">{sup.students} students</span>
+                                                </div>
+                                                <div className="supervisor-rating">
+                                                    <i className="bi bi-star-fill"></i>
+                                                    <span>4.5</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+                            </div>
+                        )}
+
+                        {/* Supervised Students List — Supervisor only */}
+                        {role === "ENCADRANT" && stats?.supervised_students && (
+                            <section className="pro-card pro-chart-card">
+                                <div className="pro-card-header">
+                                    <h3><i className="bi bi-mortarboard"></i>My Supervised Students</h3>
+                                </div>
+                                <div className="pro-card-body pro-chart-body">
+                                    {stats.supervised_students.length > 0 ? (
+                                        <div className="supervised-students-list">
+                                            {stats.supervised_students.map((student) => (
+                                                <div key={student.id} className="supervised-student-item">
+                                                    <div className="supervised-student-avatar">
+                                                        {student.nom.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <span className="supervised-student-name">{student.nom}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="pro-chart-empty">
+                                            <i className="bi bi-person-dash"></i>
+                                            <p>No students assigned yet</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+                        )}
+                    </div>
+
+                    {/* Recent Reports Table */}
+                    {role !== "ADMIN" && (
+                    <section className="pro-card">
+                        <div className="pro-card-header">
+                            <h3>
+                                <i className="bi bi-clock-history"></i>
+                                {role === "ETUDIANT" ? "My Recent Reports" : role === "ENCADRANT" ? "Recent Student Reports" : "Recent Report Submissions"}
+                            </h3>
+                        </div>
+                        <div className="pro-card-body" style={{ padding: "0" }}>
+                            {stats && stats.recent_reports && stats.recent_reports.length > 0 ? (
+                                <table className="pro-reports-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Report Title</th>
+                                            {role !== "ETUDIANT" && <th>Author</th>}
+                                            <th>Status</th>
+                                            <th>Submitted</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {stats.recent_reports.map((r) => (
+                                            <tr key={r.id}>
+                                                <td className="pro-report-title">
+                                                    <i className="bi bi-file-earmark-text"></i>
+                                                    {r.titre || `Report #${r.id}`}
+                                                </td>
+                                                {role !== "ETUDIANT" && <td>{r.auteur}</td>}
+                                                <td>
+                                                    <span
+                                                        className="pro-status-badge"
+                                                        style={{
+                                                            background: getStatutColor(r.statut) + "20",
+                                                            color: getStatutColor(r.statut),
+                                                        }}
+                                                    >
+                                                        {getStatutLabel(r.statut)}
+                                                    </span>
+                                                </td>
+                                                <td className="pro-report-date">
+                                                    {r.date ? new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            ) : (
+                                <div className="pro-reports-empty">
+                                    <i className="bi bi-inbox"></i>
+                                    <p>No reports submitted yet</p>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                    )}
+                </main>
+            </div>
+        </div>
+    );
+}
+
+export default Dashboard;

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan migrate:status)",
+      "Bash(php artisan migrate)",
+      "Bash(perl -i.bak -pe 's/\\\\$user->password/\\\\$user->mot_de_passe/g if $. == 466' app/Http/Controllers/Api/AuthController.php)",
+      "Bash(perl -i.bak -pe 's/\\\\[\"\"password\"\"\\\\]/\\\\[\"\"mot_de_passe\"\"\\\\]/g if $. == 470' app/Http/Controllers/Api/AuthController.php)",
+      "Bash(perl -i.bak -pe 's/\\\\\\\\Hash::check/Hash::check/g if $. == 466' app/Http/Controllers/Api/AuthController.php)",
+      "Bash(perl -i.bak -pe 's/\\\\\\\\Hash::make/Hash::make/g if $. == 470' app/Http/Controllers/Api/AuthController.php)",
+      "Bash(python3 -c \":*)",
+      "Bash(php -r \":*)"
+    ]
+  }
+}
