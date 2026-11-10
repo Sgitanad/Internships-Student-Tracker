@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: student-internship-tracker-laravel-main/backend
+         working-directory: student-internship-tracker-laravel-main/backend/laravel
     steps:
       - uses: actions/checkout@v4
 
