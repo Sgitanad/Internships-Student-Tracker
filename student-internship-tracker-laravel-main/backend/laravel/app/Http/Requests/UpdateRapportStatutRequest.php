@@ -12,7 +12,7 @@ class UpdateRapportStatutRequest extends FormRequest
     public function authorize(): bool
     {
         // Check if the user is an ENCADRANT or ADMIN
-        return auth()->check() && 
+        return auth()->check() &&
                (auth()->user()->role === 'ENCADRANT' || auth()->user()->role === 'ADMIN');
     }
 

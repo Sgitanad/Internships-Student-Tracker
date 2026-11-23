@@ -21,7 +21,7 @@ class DemandeEncadrement extends Model
 
     protected $casts = [
         'date_demande' => 'datetime',
-        'date_reponse'  => 'datetime',
+        'date_reponse' => 'datetime',
     ];
 
     public function encadrant()

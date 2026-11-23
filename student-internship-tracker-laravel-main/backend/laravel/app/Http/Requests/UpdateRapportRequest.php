@@ -12,10 +12,10 @@ class UpdateRapportRequest extends FormRequest
     public function authorize(): bool
     {
         $rapport = $this->route('rapport');
-        
+
         // Check if the user is the author and rapport is in BROUILLON status
-        return auth()->check() && 
-               $rapport->isAuthorOf(auth()->user()) && 
+        return auth()->check() &&
+               $rapport->isAuthorOf(auth()->user()) &&
                $rapport->statut === 'BROUILLON';
     }
 

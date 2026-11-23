@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use App\Models\Message;
 use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class MessageController extends Controller
 {
@@ -40,16 +40,18 @@ class MessageController extends Controller
 
         $conversations = $userIds->map(function ($otherId) use ($user) {
             $other = User::find($otherId);
-            if (!$other) return null;
+            if (! $other) {
+                return null;
+            }
 
             $lastMessage = Message::where('sender_id', $user->id)
                 ->where('receiver_id', $otherId)
                 ->latest()
                 ->first()
                 ?? Message::where('sender_id', $otherId)
-                ->where('receiver_id', $user->id)
-                ->latest()
-                ->first();
+                    ->where('receiver_id', $user->id)
+                    ->latest()
+                    ->first();
 
             $unread = Message::where('sender_id', $otherId)
                 ->where('receiver_id', $user->id)
@@ -57,10 +59,10 @@ class MessageController extends Controller
                 ->count();
 
             return [
-                'id'           => $otherId,
-                'other_user'   => $other,
+                'id' => $otherId,
+                'other_user' => $other,
                 'last_message' => $lastMessage?->content ?? 'No messages yet',
-                'unread'       => $unread,
+                'unread' => $unread,
             ];
         })->filter()->values();
 
@@ -93,7 +95,7 @@ class MessageController extends Controller
 
         $user = Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
@@ -105,13 +107,13 @@ class MessageController extends Controller
 
         try {
             $message = Message::create([
-                'sender_id'   => $user->id,
+                'sender_id' => $user->id,
                 'receiver_id' => (int) $otherId,
-                'content'     => $request->content,
-                'is_read'     => false,
+                'content' => $request->content,
+                'is_read' => false,
             ]);
         } catch (\Exception $e) {
-            \Log::error('Message save failed: ' . $e->getMessage());
+            \Log::error('Message save failed: '.$e->getMessage());
             throw $e;
         }
 

@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Rapport;
-use App\Models\Commentaire;
 use App\Http\Requests\StoreRapportRequest;
 use App\Http\Requests\UpdateRapportRequest;
-use App\Http\Requests\UpdateRapportStatutRequest;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
+use App\Models\Rapport;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class RapportController extends Controller
 {
@@ -20,8 +20,8 @@ class RapportController extends Controller
     {
         try {
             $user = auth()->user();
-            
-            if (!$user) {
+
+            if (! $user) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Vous devez être authentifié pour accéder à cette ressource',
@@ -37,25 +37,24 @@ class RapportController extends Controller
             }
             // Supervisors see reports from their assigned students
             // Match by: rapport.encadrant_id OR the student's current encadrant_id in users table
-            else if ($user->role === 'ENCADRANT') {
-                $studentIds = \App\Models\User::where('encadrant_id', $user->id)
+            elseif ($user->role === 'ENCADRANT') {
+                $studentIds = User::where('encadrant_id', $user->id)
                     ->pluck('id');
 
                 $rapports = Rapport::with(['auteur', 'encadrant', 'commentaires.auteur'])
-                    ->where(function($q) use ($user, $studentIds) {
+                    ->where(function ($q) use ($user, $studentIds) {
                         $q->where('encadrant_id', $user->id)
-                          ->orWhereIn('auteur_id', $studentIds);
+                            ->orWhereIn('auteur_id', $studentIds);
                     })
                     ->orderByDesc('date_depot')
                     ->get();
             }
             // Admins see all rapports
-            else if ($user->role === 'ADMIN') {
+            elseif ($user->role === 'ADMIN') {
                 $rapports = Rapport::with(['auteur', 'encadrant', 'commentaires.auteur'])
                     ->orderByDesc('date_depot')
                     ->get();
-            }
-            else {
+            } else {
                 $rapports = collect([]);
             }
 
@@ -78,8 +77,8 @@ class RapportController extends Controller
     {
         try {
             $user = auth()->user();
-            
-            if (!$user) {
+
+            if (! $user) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Vous devez être authentifié pour accéder à cette ressource',
@@ -112,7 +111,7 @@ class RapportController extends Controller
 
             if ($request->hasFile('fichier')) {
                 $file = $request->file('fichier');
-                $filename = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
+                $filename = time().'_'.preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
                 $file->move(storage_path('app/rapports'), $filename);
                 $rapportData['fichier_path'] = $filename;
             }
@@ -140,8 +139,8 @@ class RapportController extends Controller
     {
         try {
             $user = auth()->user();
-            
-            if (!$user) {
+
+            if (! $user) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Vous devez être authentifié pour accéder à cette ressource',
@@ -155,7 +154,7 @@ class RapportController extends Controller
                          $user->role === 'ENCADRANT' ||
                          $user->role === 'ADMIN';
 
-            if (!$authorized) {
+            if (! $authorized) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Vous n\'avez pas la permission de consulter ce rapport',
@@ -188,8 +187,8 @@ class RapportController extends Controller
     {
         try {
             $user = auth()->user();
-            
-            if (!$user) {
+
+            if (! $user) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Vous devez être authentifié pour accéder à cette ressource',
@@ -199,7 +198,7 @@ class RapportController extends Controller
             $rapport = Rapport::findOrFail($id);
 
             // Check authorization - only author can edit
-            if (!$rapport->isAuthorOf($user)) {
+            if (! $rapport->isAuthorOf($user)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Vous ne pouvez modifier que vos propres rapports',
@@ -210,7 +209,7 @@ class RapportController extends Controller
             if ($rapport->statut === 'VALIDE' || $rapport->statut === 'REJETE') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Ce rapport ne peut pas être modifié car il a déjà été ' . ($rapport->statut === 'VALIDE' ? 'validé' : 'rejeté'),
+                    'message' => 'Ce rapport ne peut pas être modifié car il a déjà été '.($rapport->statut === 'VALIDE' ? 'validé' : 'rejeté'),
                 ], 422);
             }
 
@@ -218,7 +217,7 @@ class RapportController extends Controller
 
             if ($request->hasFile('fichier')) {
                 $file = $request->file('fichier');
-                $filename = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
+                $filename = time().'_'.preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
                 $file->move(storage_path('app/rapports'), $filename);
                 $updateData['fichier_path'] = $filename;
             }
@@ -251,8 +250,8 @@ class RapportController extends Controller
     {
         try {
             $user = auth()->user();
-            
-            if (!$user) {
+
+            if (! $user) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Vous devez être authentifié pour accéder à cette ressource',
@@ -262,7 +261,7 @@ class RapportController extends Controller
             $rapport = Rapport::findOrFail($id);
 
             // Check if the user is the author and rapport is in BROUILLON status
-            if (!$rapport->isAuthorOf($user)) {
+            if (! $rapport->isAuthorOf($user)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Vous ne pouvez supprimer que vos propres rapports',
@@ -297,12 +296,12 @@ class RapportController extends Controller
     /**
      * Update the status of the specified rapport.
      */
-    public function updateStatut($id, \Illuminate\Http\Request $request): JsonResponse
+    public function updateStatut($id, Request $request): JsonResponse
     {
         try {
             $user = auth()->user();
-            
-            if (!$user) {
+
+            if (! $user) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Vous devez être authentifié pour accéder à cette ressource',
@@ -313,7 +312,7 @@ class RapportController extends Controller
 
             // Validate statut value
             $validStatuts = ['BROUILLON', 'SOUMIS', 'VALIDE', 'REJETE'];
-            if (!in_array($request->statut, $validStatuts)) {
+            if (! in_array($request->statut, $validStatuts)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Statut invalide. Les statuts acceptés sont: BROUILLON, SOUMIS, VALIDE, REJETE',
@@ -324,7 +323,7 @@ class RapportController extends Controller
             if ($rapport->statut === 'VALIDE' || $rapport->statut === 'REJETE') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Ce rapport ne peut pas avoir son statut modifié car il a déjà été ' . ($rapport->statut === 'VALIDE' ? 'validé' : 'rejeté'),
+                    'message' => 'Ce rapport ne peut pas avoir son statut modifié car il a déjà été '.($rapport->statut === 'VALIDE' ? 'validé' : 'rejeté'),
                 ], 422);
             }
 
@@ -337,20 +336,20 @@ class RapportController extends Controller
                         'message' => 'En tant qu\'étudiant, vous ne pouvez passer un rapport de brouillon à soumis',
                     ], 403);
                 }
-                
+
                 // ETUDIANT can only change their own rapport
-                if (!$rapport->isAuthorOf($user)) {
+                if (! $rapport->isAuthorOf($user)) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Vous ne pouvez modifier que vos propres rapports',
                     ], 403);
                 }
-            } else if ($user->role === 'ENCADRANT' || $user->role === 'ADMIN') {
+            } elseif ($user->role === 'ENCADRANT' || $user->role === 'ADMIN') {
                 // ENCADRANT and ADMIN can change to VALIDE or REJETE
                 if ($request->statut !== 'VALIDE' && $request->statut !== 'REJETE') {
                     return response()->json([
                         'success' => false,
-                        'message' => 'En tant que ' . ($user->role === 'ENCADRANT' ? 'encadrant' : 'administrateur') . ', vous ne pouvez passer un rapport à validé ou rejeté',
+                        'message' => 'En tant que '.($user->role === 'ENCADRANT' ? 'encadrant' : 'administrateur').', vous ne pouvez passer un rapport à validé ou rejeté',
                     ], 403);
                 }
             } else {

@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Document;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
-use App\Models\Document;
 
 class DocumentController extends Controller
 {
@@ -49,11 +49,11 @@ class DocumentController extends Controller
         $path = $file->store("documents/{$user->id}", 'local');
 
         $document = Document::create([
-            'user_id'       => $user->id,
-            'name'          => $path,
+            'user_id' => $user->id,
+            'name' => $path,
             'original_name' => $originalName,
-            'size'          => $file->getSize(),
-            'mime_type'     => $file->getMimeType(),
+            'size' => $file->getSize(),
+            'mime_type' => $file->getMimeType(),
         ]);
 
         return response()->json(['document' => $document], 201);
@@ -70,11 +70,11 @@ class DocumentController extends Controller
                        ($user->encadrant_id === $document->user_id);
         $isSupervisorOfDoc = ($user->role === 'supervisors' && $document->user_id === $user->id);
 
-        if (!$canDownload && !$isSupervisorOfDoc) {
+        if (! $canDownload && ! $isSupervisorOfDoc) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        if (!Storage::disk('local')->exists($document->name)) {
+        if (! Storage::disk('local')->exists($document->name)) {
             return response()->json(['message' => 'File not found.'], 404);
         }
 

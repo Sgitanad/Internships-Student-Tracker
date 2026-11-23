@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use App\Models\Deadline;
+use Illuminate\Http\Request;
 
 class DeadlineController extends Controller
 {
@@ -14,10 +13,10 @@ class DeadlineController extends Controller
 
         return response()->json(['events' => $deadlines->map(function ($d) {
             return [
-                'id'    => $d->id,
+                'id' => $d->id,
                 'title' => $d->type,
-                'date'  => $d->date_limite,
-                'type'  => 'DEADLINE',
+                'date' => $d->date_limite,
+                'type' => 'DEADLINE',
             ];
         })]);
     }
@@ -26,19 +25,19 @@ class DeadlineController extends Controller
     {
         $request->validate([
             'title' => 'required|string|max:255',
-            'date'  => 'required|date',
+            'date' => 'required|date',
         ]);
 
         $deadline = Deadline::create([
-            'type'        => $request->title,
+            'type' => $request->title,
             'date_limite' => $request->date,
         ]);
 
         return response()->json(['event' => [
-            'id'    => $deadline->id,
+            'id' => $deadline->id,
             'title' => $deadline->type,
-            'date'  => $deadline->date_limite,
-            'type'  => 'DEADLINE',
+            'date' => $deadline->date_limite,
+            'type' => 'DEADLINE',
         ]], 201);
     }
 

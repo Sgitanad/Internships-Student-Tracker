@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Notification;
 
 class NotificationController extends Controller
 {
@@ -13,7 +13,7 @@ class NotificationController extends Controller
         $user = Auth::user();
 
         // If notifications disabled for this user, do not return any items
-        if (isset($user->notifications_enabled) && !$user->notifications_enabled) {
+        if (isset($user->notifications_enabled) && ! $user->notifications_enabled) {
             return response()->json(['notifications' => []]);
         }
 
@@ -49,7 +49,6 @@ class NotificationController extends Controller
 
         return response()->json(['message' => 'Notification preference updated.']);
     }
-
 
     public function markAsRead($id)
     {

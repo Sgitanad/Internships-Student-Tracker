@@ -4,8 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\DemandeEncadrement;
-use App\Models\User;
 use App\Models\Notification;
+use App\Models\Rapport;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -20,7 +21,7 @@ class DemandeEncadrementController extends Controller
             ->get(['id', 'nom', 'email']);
 
         return response()->json([
-            'status'      => 'success',
+            'status' => 'success',
             'supervisors' => $supervisors,
         ]);
     }
@@ -35,7 +36,7 @@ class DemandeEncadrementController extends Controller
         // Only students can send requests
         if ($user->role !== 'ETUDIANT') {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Only students can send supervision requests.',
             ], 403);
         }
@@ -47,7 +48,7 @@ class DemandeEncadrementController extends Controller
 
         if ($alreadyAccepted) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'You already have an assigned supervisor.',
             ], 400);
         }
@@ -60,14 +61,14 @@ class DemandeEncadrementController extends Controller
 
         if ($existingPending) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'You already have a pending or active request with this supervisor.',
             ], 400);
         }
 
         $validator = Validator::make($request->all(), [
             'encadrant_id' => 'required|integer|exists:users,id',
-            'message'      => 'nullable|string|max:500',
+            'message' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -82,9 +83,9 @@ class DemandeEncadrementController extends Controller
             ->where('role', 'ENCADRANT')
             ->first();
 
-        if (!$supervisor) {
+        if (! $supervisor) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'The selected user is not a valid supervisor.',
             ], 404);
         }
@@ -92,27 +93,27 @@ class DemandeEncadrementController extends Controller
         $demande = DemandeEncadrement::create([
             'date_demande' => now(),
             'encadrant_id' => $request->encadrant_id,
-            'etudiant_id'  => $user->id,
-            'message'      => $request->message,
-            'statut'       => 'EN_ATTENTE',
+            'etudiant_id' => $user->id,
+            'message' => $request->message,
+            'statut' => 'EN_ATTENTE',
         ]);
 
         // Notify the supervisor about the new request
         try {
             Notification::create([
-                'user_id'    => $request->encadrant_id,
-                'type'       => 'supervision_request',
-                'titre'      => 'New supervision request',
-                'message'    => "{$user->nom} has requested your supervision.",
+                'user_id' => $request->encadrant_id,
+                'type' => 'supervision_request',
+                'titre' => 'New supervision request',
+                'message' => "{$user->nom} has requested your supervision.",
                 'date_envoi' => now(),
-                'est_lue'    => false,
+                'est_lue' => false,
             ]);
         } catch (\Exception $e) {
-            \Log::warning('Failed to create supervision notification: ' . $e->getMessage());
+            \Log::warning('Failed to create supervision notification: '.$e->getMessage());
         }
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Supervision request sent successfully.',
             'demande' => $demande,
         ], 201);
@@ -127,7 +128,7 @@ class DemandeEncadrementController extends Controller
 
         if ($user->role !== 'ENCADRANT') {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Only supervisors can view requests.',
             ], 403);
         }
@@ -138,7 +139,7 @@ class DemandeEncadrementController extends Controller
             ->get();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'requests' => $requests,
         ]);
     }
@@ -153,7 +154,7 @@ class DemandeEncadrementController extends Controller
 
         if ($user->role !== 'ENCADRANT') {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Only supervisors can respond.',
             ], 403);
         }
@@ -162,16 +163,16 @@ class DemandeEncadrementController extends Controller
             ->where('encadrant_id', $user->id)
             ->first();
 
-        if (!$demande) {
+        if (! $demande) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Request not found or not authorized.',
             ], 404);
         }
 
         if ($demande->statut !== 'EN_ATTENTE') {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'This request has already been processed.',
             ], 400);
         }
@@ -203,7 +204,7 @@ class DemandeEncadrementController extends Controller
                 ->update(['encadrant_id' => $user->id]);
 
             // Backfill existing reports that have no encadrant assigned
-            \App\Models\Rapport::where('auteur_id', $demande->etudiant_id)
+            Rapport::where('auteur_id', $demande->etudiant_id)
                 ->whereNull('encadrant_id')
                 ->update(['encadrant_id' => $user->id]);
         }
@@ -217,19 +218,19 @@ class DemandeEncadrementController extends Controller
                 : "Your supervision request has been rejected by {$user->nom}.";
 
             Notification::create([
-                'user_id'    => $demande->etudiant_id,
-                'type'       => $notificationType,
-                'titre'      => $notificationTitle,
-                'message'    => $notificationMsg,
+                'user_id' => $demande->etudiant_id,
+                'type' => $notificationType,
+                'titre' => $notificationTitle,
+                'message' => $notificationMsg,
                 'date_envoi' => now(),
-                'est_lue'    => false,
+                'est_lue' => false,
             ]);
         } catch (\Exception $e) {
-            \Log::warning('Failed to create supervision response notification: ' . $e->getMessage());
+            \Log::warning('Failed to create supervision response notification: '.$e->getMessage());
         }
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => $request->action === 'ACCEPTE'
                 ? 'Request accepted. Student assigned to you.'
                 : 'Request rejected.',

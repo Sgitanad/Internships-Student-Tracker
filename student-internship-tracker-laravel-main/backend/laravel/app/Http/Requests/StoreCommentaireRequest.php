@@ -12,7 +12,7 @@ class StoreCommentaireRequest extends FormRequest
     public function authorize(): bool
     {
         // Both ETUDIANT and ENCADRANT can add comments
-        return auth()->check() && 
+        return auth()->check() &&
                (auth()->user()->role === 'ETUDIANT' || auth()->user()->role === 'ENCADRANT');
     }
 

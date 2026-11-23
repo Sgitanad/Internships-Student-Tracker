@@ -1,9 +1,8 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -15,7 +14,7 @@ return new class extends Migration
         // Only run if notifications table exists
         if (Schema::hasTable('notifications')) {
             DB::statement("ALTER TABLE notifications ADD COLUMN IF NOT EXISTS `type` varchar(191) DEFAULT 'general' AFTER `user_id`");
-            DB::statement("ALTER TABLE notifications ADD COLUMN IF NOT EXISTS `rapport_id` bigint UNSIGNED NULL AFTER `type`");
+            DB::statement('ALTER TABLE notifications ADD COLUMN IF NOT EXISTS `rapport_id` bigint UNSIGNED NULL AFTER `type`');
         }
     }
 

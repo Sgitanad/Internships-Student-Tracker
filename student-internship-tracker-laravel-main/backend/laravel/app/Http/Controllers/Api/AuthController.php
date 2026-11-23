@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use App\Models\Rapport;
-use App\Models\Notification;
 use App\Models\DemandeEncadrement;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Notification;
+use App\Models\Rapport;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
@@ -19,159 +19,10 @@ class AuthController extends Controller
     {
         // Default role is ETUDIANT - no one can self-register as admin/encadrant
         $validator = Validator::make($request->all(), [
-            'nom'          => 'required|string|max:255',
-            'email'        => 'required|email|unique:users,email',
+            'nom' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
             'mot_de_passe' => 'required|string|min:6',
-            'role'         => 'sometimes|in:ETUDIANT', // only ETUDIANT allowed via self-register
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $user = User::create([
-            'nom'          => $request->nom,
-            'email'        => $request->email,
-            'mot_de_passe' => Hash::make($request->mot_de_passe),
-            'role'         => $request->role ?? 'ETUDIANT',
-        ]);
-
-        // Notify admins of new student registration
-        try {
-            $admins = User::where('role', 'ADMIN')->get();
-            foreach ($admins as $admin) {
-                Notification::create([
-                    'user_id'    => $admin->id,
-                    'type'       => 'user_registered',
-                    'titre'      => 'New student registered',
-                    'message'    => "A new student ({$request->nom}) has registered with email {$request->email}.",
-                    'date_envoi' => now(),
-                    'est_lue'    => false,
-                ]);
-            }
-        } catch (\Exception $e) {
-            \Log::warning('Failed to notify admins of new registration: ' . $e->getMessage());
-        }
-
-        $token = auth()->login($user);
-
-        return response()->json([
-            'status' => 'success',
-            'user'   => $user,
-            'token'  => $token,
-        ], 201);
-    }
-
-    public function createUser(Request $request)
-    {
-        // Only admins can create users with any role
-        $validator = Validator::make($request->all(), [
-            'nom'          => 'required|string|max:255',
-            'email'        => 'required|email|unique:users,email',
-            'mot_de_passe' => 'required|string|min:6',
-            'role'         => 'required|in:ADMIN,ENCADRANT,ETUDIANT',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $user = User::create([
-            'nom'          => $request->nom,
-            'email'        => $request->email,
-            'mot_de_passe' => Hash::make($request->mot_de_passe),
-            'role'         => $request->role,
-        ]);
-
-        // Notify the admin who created this user (non-blocking)
-        try {
-            $admin = auth()->user();
-            if ($admin) {
-                Notification::create([
-                    'user_id'    => $admin->id,
-                    'type'       => 'user_created',
-                    'titre'      => 'New user created',
-                    'message'    => "A new {$request->role} account was created for {$request->nom} ({$request->email}).",
-                    'date_envoi' => now(),
-                    'est_lue'    => false,
-                ]);
-            }
-        } catch (\Exception $e) {
-            // Log but don't fail - user was already created successfully
-            \Log::warning('Failed to create notification after user creation: ' . $e->getMessage());
-        }
-
-        return response()->json([
-            'status'  => 'success',
-            'message' => 'User created successfully',
-            'user'    => $user,
-        ], 201);
-    }
-
-    public function getUsers()
-    {
-        $users = User::all(['id', 'nom', 'email', 'role']);
-        return response()->json([
-            'status' => 'success',
-            'users'  => $users,
-        ]);
-    }
-
-    public function deleteUser($id)
-    {
-        $user = User::find($id);
-        if (!$user) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'User not found',
-            ], 404);
-        }
-
-        // Prevent admin from deleting themselves
-        if (auth()->id() === $user->id) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'You cannot delete your own account',
-            ], 403);
-        }
-
-        // Clear all foreign key references before deleting
-        DB::statement("SET FOREIGN_KEY_CHECKS=0");
-
-        $user->rapports()->update(['encadrant_id' => null]);
-        $user->rapportsAsAuteur()->update(['auteur_id' => null]);
-        Notification::where('user_id', $user->id)->delete();
-
-        $user->delete();
-
-        DB::statement("SET FOREIGN_KEY_CHECKS=1");
-
-        return response()->json([
-            'status'  => 'success',
-            'message' => 'User deleted successfully',
-        ]);
-    }
-
-    public function updateUser(Request $request, $id)
-    {
-        $user = User::find($id);
-        if (!$user) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'User not found',
-            ], 404);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'nom'   => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|required|email|unique:users,email,' . $id,
-            'role'  => 'sometimes|required|in:ADMIN,ENCADRANT,ETUDIANT',
+            'role' => 'sometimes|in:ETUDIANT', // only ETUDIANT allowed via self-register
         ]);
 
         if ($validator->fails()) {
@@ -181,39 +32,195 @@ class AuthController extends Controller
             ], 422);
         }
 
-        if ($request->has('nom'))   $user->nom   = $request->nom;
-        if ($request->has('email')) $user->email = $request->email;
-        if ($request->has('role'))  $user->role  = $request->role;
-        
+        $user = User::create([
+            'nom' => $request->nom,
+            'email' => $request->email,
+            'mot_de_passe' => Hash::make($request->mot_de_passe),
+            'role' => $request->role ?? 'ETUDIANT',
+        ]);
+
+        // Notify admins of new student registration
+        try {
+            $admins = User::where('role', 'ADMIN')->get();
+            foreach ($admins as $admin) {
+                Notification::create([
+                    'user_id' => $admin->id,
+                    'type' => 'user_registered',
+                    'titre' => 'New student registered',
+                    'message' => "A new student ({$request->nom}) has registered with email {$request->email}.",
+                    'date_envoi' => now(),
+                    'est_lue' => false,
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Failed to notify admins of new registration: '.$e->getMessage());
+        }
+
+        $token = auth()->login($user);
+
+        return response()->json([
+            'status' => 'success',
+            'user' => $user,
+            'token' => $token,
+        ], 201);
+    }
+
+    public function createUser(Request $request)
+    {
+        // Only admins can create users with any role
+        $validator = Validator::make($request->all(), [
+            'nom' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'mot_de_passe' => 'required|string|min:6',
+            'role' => 'required|in:ADMIN,ENCADRANT,ETUDIANT',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = User::create([
+            'nom' => $request->nom,
+            'email' => $request->email,
+            'mot_de_passe' => Hash::make($request->mot_de_passe),
+            'role' => $request->role,
+        ]);
+
+        // Notify the admin who created this user (non-blocking)
+        try {
+            $admin = auth()->user();
+            if ($admin) {
+                Notification::create([
+                    'user_id' => $admin->id,
+                    'type' => 'user_created',
+                    'titre' => 'New user created',
+                    'message' => "A new {$request->role} account was created for {$request->nom} ({$request->email}).",
+                    'date_envoi' => now(),
+                    'est_lue' => false,
+                ]);
+            }
+        } catch (\Exception $e) {
+            // Log but don't fail - user was already created successfully
+            \Log::warning('Failed to create notification after user creation: '.$e->getMessage());
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'User created successfully',
+            'user' => $user,
+        ], 201);
+    }
+
+    public function getUsers()
+    {
+        $users = User::all(['id', 'nom', 'email', 'role']);
+
+        return response()->json([
+            'status' => 'success',
+            'users' => $users,
+        ]);
+    }
+
+    public function deleteUser($id)
+    {
+        $user = User::find($id);
+        if (! $user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User not found',
+            ], 404);
+        }
+
+        // Prevent admin from deleting themselves
+        if (auth()->id() === $user->id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'You cannot delete your own account',
+            ], 403);
+        }
+
+        // Clear all foreign key references before deleting
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
+        $user->rapports()->update(['encadrant_id' => null]);
+        $user->rapportsAsAuteur()->update(['auteur_id' => null]);
+        Notification::where('user_id', $user->id)->delete();
+
+        $user->delete();
+
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'User deleted successfully',
+        ]);
+    }
+
+    public function updateUser(Request $request, $id)
+    {
+        $user = User::find($id);
+        if (! $user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User not found',
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'nom' => 'sometimes|required|string|max:255',
+            'email' => 'sometimes|required|email|unique:users,email,'.$id,
+            'role' => 'sometimes|required|in:ADMIN,ENCADRANT,ETUDIANT',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        if ($request->has('nom')) {
+            $user->nom = $request->nom;
+        }
+        if ($request->has('email')) {
+            $user->email = $request->email;
+        }
+        if ($request->has('role')) {
+            $user->role = $request->role;
+        }
+
         $user->save();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'User role updated successfully',
-            'user'    => $user,
+            'user' => $user,
         ]);
     }
 
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'email'        => 'required|email',
+            'email' => 'required|email',
             'mot_de_passe' => 'required|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'status' => 'error',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         $credentials = [
-            'email'    => $request->email,
+            'email' => $request->email,
             'password' => $request->mot_de_passe,
         ];
 
-        if (!$token = auth()->attempt($credentials)) {
+        if (! $token = auth()->attempt($credentials)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Email ou mot de passe incorrect',
@@ -222,8 +229,8 @@ class AuthController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'user'   => auth()->user(),
-            'token'  => $token,
+            'user' => auth()->user(),
+            'token' => $token,
         ]);
     }
 
@@ -231,14 +238,14 @@ class AuthController extends Controller
     {
         return response()->json([
             'status' => 'success',
-            'user'   => auth()->user(),
+            'user' => auth()->user(),
         ]);
     }
 
     public function logout()
     {
         auth()->logout();
-        
+
         return response()->json([
             'status' => 'success',
             'message' => 'Déconnexion réussie',
@@ -249,8 +256,8 @@ class AuthController extends Controller
     {
         return response()->json([
             'status' => 'success',
-            'user'   => auth()->user(),
-            'token'  => auth()->refresh(),
+            'user' => auth()->user(),
+            'token' => auth()->refresh(),
         ]);
     }
 
@@ -266,27 +273,27 @@ class AuthController extends Controller
 
             $reportsByStatus = [
                 'BROUILLON' => Rapport::where('statut', 'BROUILLON')->count(),
-                'SOUMIS'    => Rapport::where('statut', 'SOUMIS')->count(),
-                'VALIDE'    => Rapport::where('statut', 'VALIDE')->count(),
-                'REJETE'    => Rapport::where('statut', 'REJETE')->count(),
+                'SOUMIS' => Rapport::where('statut', 'SOUMIS')->count(),
+                'VALIDE' => Rapport::where('statut', 'VALIDE')->count(),
+                'REJETE' => Rapport::where('statut', 'REJETE')->count(),
             ];
 
             $usersByRole = [
-                'admins'      => User::where('role', 'ADMIN')->count(),
+                'admins' => User::where('role', 'ADMIN')->count(),
                 'supervisors' => User::where('role', 'ENCADRANT')->count(),
-                'students'    => User::where('role', 'ETUDIANT')->count(),
+                'students' => User::where('role', 'ETUDIANT')->count(),
             ];
 
             $recentReports = Rapport::with('auteur')
                 ->orderBy('date_depot', 'desc')
                 ->take(5)
                 ->get()
-                ->map(fn($r) => [
-                    'id'     => $r->id,
-                    'titre'  => $r->titre,
+                ->map(fn ($r) => [
+                    'id' => $r->id,
+                    'titre' => $r->titre,
                     'statut' => $r->statut,
                     'auteur' => $r->auteur ? $r->auteur->nom : 'Unknown',
-                    'date'   => $r->date_depot,
+                    'date' => $r->date_depot,
                 ]);
 
             $monthlySubmissions = [];
@@ -300,14 +307,14 @@ class AuthController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'stats'  => [
-                    'role'               => 'ADMIN',
-                    'total_users'        => $totalUsers,
-                    'total_reports'      => $totalReports,
-                    'reports_by_status'  => $reportsByStatus,
-                    'users_by_role'      => $usersByRole,
-                    'recent_reports'     => $recentReports,
-                    'monthly_submissions'=> $monthlySubmissions,
+                'stats' => [
+                    'role' => 'ADMIN',
+                    'total_users' => $totalUsers,
+                    'total_reports' => $totalReports,
+                    'reports_by_status' => $reportsByStatus,
+                    'users_by_role' => $usersByRole,
+                    'recent_reports' => $recentReports,
+                    'monthly_submissions' => $monthlySubmissions,
                 ],
             ]);
         }
@@ -326,9 +333,9 @@ class AuthController extends Controller
             $totalReports = $supervisedReports->count();
             $reportsByStatus = [
                 'BROUILLON' => (clone $supervisedReports)->where('statut', 'BROUILLON')->count(),
-                'SOUMIS'    => (clone $supervisedReports)->where('statut', 'SOUMIS')->count(),
-                'VALIDE'    => (clone $supervisedReports)->where('statut', 'VALIDE')->count(),
-                'REJETE'    => (clone $supervisedReports)->where('statut', 'REJETE')->count(),
+                'SOUMIS' => (clone $supervisedReports)->where('statut', 'SOUMIS')->count(),
+                'VALIDE' => (clone $supervisedReports)->where('statut', 'VALIDE')->count(),
+                'REJETE' => (clone $supervisedReports)->where('statut', 'REJETE')->count(),
             ];
 
             $recentReports = $supervisedReports
@@ -336,12 +343,12 @@ class AuthController extends Controller
                 ->orderBy('date_depot', 'desc')
                 ->take(5)
                 ->get()
-                ->map(fn($r) => [
-                    'id'     => $r->id,
-                    'titre'  => $r->titre,
+                ->map(fn ($r) => [
+                    'id' => $r->id,
+                    'titre' => $r->titre,
                     'statut' => $r->statut,
                     'auteur' => $r->auteur ? $r->auteur->nom : 'Unknown',
-                    'date'   => $r->date_depot,
+                    'date' => $r->date_depot,
                 ]);
 
             $monthlySubmissions = [];
@@ -356,13 +363,13 @@ class AuthController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'stats'  => [
-                    'role'                => 'ENCADRANT',
-                    'total_reports'       => $totalReports,
-                    'total_students'      => $supervisedStudentIds->count(),
-                    'reports_by_status'   => $reportsByStatus,
+                'stats' => [
+                    'role' => 'ENCADRANT',
+                    'total_reports' => $totalReports,
+                    'total_students' => $supervisedStudentIds->count(),
+                    'reports_by_status' => $reportsByStatus,
                     'supervised_students' => $supervisedStudents,
-                    'recent_reports'      => $recentReports,
+                    'recent_reports' => $recentReports,
                     'monthly_submissions' => $monthlySubmissions,
                 ],
             ]);
@@ -374,21 +381,21 @@ class AuthController extends Controller
         $totalReports = $myReports->count();
         $reportsByStatus = [
             'BROUILLON' => (clone $myReports)->where('statut', 'BROUILLON')->count(),
-            'SOUMIS'    => (clone $myReports)->where('statut', 'SOUMIS')->count(),
-            'VALIDE'    => (clone $myReports)->where('statut', 'VALIDE')->count(),
-            'REJETE'    => (clone $myReports)->where('statut', 'REJETE')->count(),
+            'SOUMIS' => (clone $myReports)->where('statut', 'SOUMIS')->count(),
+            'VALIDE' => (clone $myReports)->where('statut', 'VALIDE')->count(),
+            'REJETE' => (clone $myReports)->where('statut', 'REJETE')->count(),
         ];
 
         $recentReports = $myReports
             ->orderBy('date_depot', 'desc')
             ->take(5)
             ->get()
-            ->map(fn($r) => [
-                'id'     => $r->id,
-                'titre'  => $r->titre,
+            ->map(fn ($r) => [
+                'id' => $r->id,
+                'titre' => $r->titre,
                 'statut' => $r->statut,
                 'auteur' => $user->nom,
-                'date'   => $r->date_depot,
+                'date' => $r->date_depot,
             ]);
 
         $monthlySubmissions = [];
@@ -406,19 +413,20 @@ class AuthController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'stats'  => [
-                'role'                => 'ETUDIANT',
-                'total_reports'       => $totalReports,
-                'reports_by_status'   => $reportsByStatus,
-                'recent_reports'       => $recentReports,
+            'stats' => [
+                'role' => 'ETUDIANT',
+                'total_reports' => $totalReports,
+                'reports_by_status' => $reportsByStatus,
+                'recent_reports' => $recentReports,
                 'monthly_submissions' => $monthlySubmissions,
-                'supervision_status'  => $myRequest ? $myRequest->statut : null,
-                'supervisor_id'       => $myRequest?->encadrant_id,
+                'supervision_status' => $myRequest ? $myRequest->statut : null,
+                'supervisor_id' => $myRequest?->encadrant_id,
             ],
         ]);
     }
+
     // Update profile
-public function uploadProfilePicture(Request $request)
+    public function uploadProfilePicture(Request $request)
     {
         $user = Auth::user();
 
@@ -427,48 +435,48 @@ public function uploadProfilePicture(Request $request)
         ]);
 
         $file = $request->file('profile_picture');
-        $filename = 'profile_' . $user->id . '_' . time() . '.' . $file->getClientOriginalExtension();
+        $filename = 'profile_'.$user->id.'_'.time().'.'.$file->getClientOriginalExtension();
         $path = $file->storeAs('profile_pictures', $filename, 'public');
 
         $user->update(['profile_picture' => $path]);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Profile picture uploaded.',
-            'user'    => $user->fresh(),
+            'user' => $user->fresh(),
         ]);
     }
 
     public function updateProfile(Request $request)
-{
-    $user = Auth::user();
+    {
+        $user = Auth::user();
 
-    $request->validate([
-        'nom'   => 'sometimes|string|max:255',
-        'email' => 'sometimes|email|unique:users,email,' . $user->id,
-    ]);
+        $request->validate([
+            'nom' => 'sometimes|string|max:255',
+            'email' => 'sometimes|email|unique:users,email,'.$user->id,
+        ]);
 
-    $user->update($request->only(['nom', 'email']));
+        $user->update($request->only(['nom', 'email']));
 
-    return response()->json(['user' => $user->fresh()]);
-}
- 
-// Change password
-public function changePassword(Request $request)
-{
-    $user = Auth::user();
- 
-    $request->validate([
-        'current_password'      => 'required|string',
-        'password'              => 'required|string|min:8|confirmed',
-    ]);
- 
-    if (!\Hash::check($request->current_password, $user->mot_de_passe)) {
-        return response()->json(['message' => 'Current password is incorrect.'], 422);
+        return response()->json(['user' => $user->fresh()]);
     }
- 
-    $user->update(['mot_de_passe' => Hash::make($request->password)]);
- 
-    return response()->json(['message' => 'Password updated successfully.']);
-}
+
+    // Change password
+    public function changePassword(Request $request)
+    {
+        $user = Auth::user();
+
+        $request->validate([
+            'current_password' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        if (! \Hash::check($request->current_password, $user->mot_de_passe)) {
+            return response()->json(['message' => 'Current password is incorrect.'], 422);
+        }
+
+        $user->update(['mot_de_passe' => Hash::make($request->password)]);
+
+        return response()->json(['message' => 'Password updated successfully.']);
+    }
 }

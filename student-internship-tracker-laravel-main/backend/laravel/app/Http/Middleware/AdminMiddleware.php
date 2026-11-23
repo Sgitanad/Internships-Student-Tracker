@@ -12,9 +12,9 @@ class AdminMiddleware
     {
         $user = auth()->user();
 
-        if (!$user || $user->role !== 'ADMIN') {
+        if (! $user || $user->role !== 'ADMIN') {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Unauthorized. Admin access required.',
             ], 403);
         }

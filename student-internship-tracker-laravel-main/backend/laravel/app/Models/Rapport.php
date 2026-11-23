@@ -10,6 +10,7 @@ class Rapport extends Model
     use HasFactory;
 
     protected $table = 'rapports';
+
     public $timestamps = false;
 
     protected $fillable = [
