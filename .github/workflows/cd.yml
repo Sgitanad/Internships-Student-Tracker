@@ -52,7 +52,7 @@ jobs:
         run: |
           rsync -a --delete \
             --exclude '.env' --exclude 'storage' --exclude 'vendor' --exclude '.git' \
-            ${{ env.APP_DIR }}/backend/ ${{ env.DEPLOY_DIR }}/backend/
+                        ${{ env.APP_DIR }}/backend/laravel/ ${{ env.DEPLOY_DIR }}/backend/
           cd ${{ env.DEPLOY_DIR }}/backend
           composer install --no-dev --optimize-autoloader --no-interaction
           php artisan migrate --force
