@@ -9,23 +9,23 @@ on:
 
 env:
   APP_DIR: student-internship-tracker-laravel-main
+  DEPLOY_DIR: /var/www/tracker
 
 jobs:
   deploy:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
-    env:
-      SSH_HOST: ${{ secrets.SSH_HOST }}
-      SSH_USER: ${{ secrets.SSH_USER }}
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      - name: Vérifier les secrets
+      - name: Vérifier le secret API_URL
+        env:
+          API_URL: ${{ secrets.API_URL }}
         run: |
-          if [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ]; then
-            echo "::error::Secrets SSH_HOST / SSH_USER manquants (Settings > Secrets and variables > Actions)"
+          if [ -z "$API_URL" ]; then
+            echo "::error::Secret API_URL manquant (Settings > Secrets and variables > Actions)"
             exit 1
           fi
 
@@ -33,6 +33,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
       - name: Build frontend
         working-directory: ${{ env.APP_DIR }}/frontend
         env:
@@ -41,39 +42,28 @@ jobs:
           npm ci
           npm run build
 
-      # SSH
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
-
-      # DEPLOY
+      # DEPLOY (local sur la VM 1)
       - name: Deploy frontend
         run: |
-          rsync -az --delete ${{ env.APP_DIR }}/frontend/build/ \
-            $SSH_USER@$SSH_HOST:/var/www/tracker/frontend/
+          rsync -a --delete ${{ env.APP_DIR }}/frontend/build/ ${{ env.DEPLOY_DIR }}/frontend/
 
       - name: Deploy backend
         run: |
-          rsync -az --delete \
+          rsync -a --delete \
             --exclude '.env' --exclude 'storage' --exclude 'vendor' --exclude '.git' \
-            ${{ env.APP_DIR }}/backend/ $SSH_USER@$SSH_HOST:/var/www/tracker/backend/
-          ssh $SSH_USER@$SSH_HOST '
-            cd /var/www/tracker/backend &&
-            composer install --no-dev --optimize-autoloader --no-interaction &&
-            php artisan migrate --force &&
-            php artisan config:cache &&
-            php artisan route:cache &&
-            sudo systemctl reload php8.3-fpm nginx
-          '
+            ${{ env.APP_DIR }}/backend/ ${{ env.DEPLOY_DIR }}/backend/
+          cd ${{ env.DEPLOY_DIR }}/backend
+          composer install --no-dev --optimize-autoloader --no-interaction
+          php artisan migrate --force
+          php artisan config:cache
+          php artisan route:cache
+          sudo systemctl reload php8.3-fpm nginx
 
       # VERIFY
       - name: Verify
         run: |
           sleep 5
-          curl -fsS "http://$SSH_HOST/" > /dev/null
-          code=$(curl -s -o /dev/null -w "%{http_code}" "http://$SSH_HOST/api/login")
+          curl -fsS http://localhost/ > /dev/null
+          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/api/login)
           echo "API /api/login -> $code"
           [ "$code" -lt 500 ]
