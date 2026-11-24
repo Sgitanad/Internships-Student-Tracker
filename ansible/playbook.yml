@@ -1,0 +1,111 @@
+---
+- name: Préparer la VM 1 (application web)
+  hosts: all
+  become: true
+  vars:
+    deploy_user: azureuser
+    app_dir: /var/www/tracker
+
+  tasks:
+    - name: Installer les paquets
+      ansible.builtin.apt:
+        name:
+          - nginx
+          - php8.3-fpm
+          - php8.3-cli
+          - php8.3-mysql
+          - php8.3-mbstring
+          - php8.3-xml
+          - php8.3-curl
+          - php8.3-zip
+          - php8.3-bcmath
+          - composer
+          - rsync
+          - git
+          - unzip
+        state: present
+        update_cache: true
+
+    - name: Créer les dossiers de l'application
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ deploy_user }}"
+        group: www-data
+        mode: "0775"
+      loop:
+        - "{{ app_dir }}"
+        - "{{ app_dir }}/frontend"
+        - "{{ app_dir }}/backend"
+
+    - name: Créer les dossiers storage de Laravel
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ deploy_user }}"
+        group: www-data
+        mode: "2775"
+      loop:
+        - "{{ app_dir }}/backend/storage"
+        - "{{ app_dir }}/backend/storage/app"
+        - "{{ app_dir }}/backend/storage/logs"
+        - "{{ app_dir }}/backend/storage/framework"
+        - "{{ app_dir }}/backend/storage/framework/cache"
+        - "{{ app_dir }}/backend/storage/framework/sessions"
+        - "{{ app_dir }}/backend/storage/framework/views"
+
+    - name: Configuration Nginx du site
+      ansible.builtin.copy:
+        dest: /etc/nginx/sites-available/tracker
+        content: |
+          server {
+              listen 80;
+              server_name _;
+              root /var/www/tracker/frontend;
+              index index.html;
+
+              location / {
+                  try_files $uri /index.html;
+              }
+
+              location ^~ /api {
+                  root /var/www/tracker/backend/public;
+                  try_files $uri /index.php?$query_string;
+              }
+
+              location ~ ^/index\.php$ {
+                  root /var/www/tracker/backend/public;
+                  include fastcgi_params;
+                  fastcgi_param SCRIPT_FILENAME /var/www/tracker/backend/public/index.php;
+                  fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+              }
+          }
+      notify: Recharger Nginx
+
+    - name: Activer le site
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/tracker
+        dest: /etc/nginx/sites-enabled/tracker
+        state: link
+      notify: Recharger Nginx
+
+    - name: Désactiver le site par défaut
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Recharger Nginx
+
+    - name: Démarrer et activer les services
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop:
+        - nginx
+        - php8.3-fpm
+
+  handlers:
+    - name: Recharger Nginx
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded
