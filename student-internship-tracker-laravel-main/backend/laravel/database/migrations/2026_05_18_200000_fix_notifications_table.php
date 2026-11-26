@@ -1,26 +1,30 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        // Only run if notifications table exists
-        if (Schema::hasTable('notifications')) {
-            DB::statement("ALTER TABLE notifications ADD COLUMN IF NOT EXISTS `type` varchar(191) DEFAULT 'general' AFTER `user_id`");
-            DB::statement('ALTER TABLE notifications ADD COLUMN IF NOT EXISTS `rapport_id` bigint UNSIGNED NULL AFTER `type`');
+        if (! Schema::hasTable('notifications')) {
+            return;
+        }
+
+        if (! Schema::hasColumn('notifications', 'type')) {
+            Schema::table('notifications', function (Blueprint $table) {
+                $table->string('type', 191)->nullable()->default('general');
+            });
+        }
+
+        if (! Schema::hasColumn('notifications', 'rapport_id')) {
+            Schema::table('notifications', function (Blueprint $table) {
+                $table->unsignedBigInteger('rapport_id')->nullable();
+            });
         }
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         //
