@@ -55,6 +55,7 @@ jobs:
             ${{ env.APP_DIR }}/backend/laravel/ ${{ env.DEPLOY_DIR }}/backend/
           cd ${{ env.DEPLOY_DIR }}/backend
           composer install --no-dev --optimize-autoloader --no-interaction
+          php artisan migrate --force
           php artisan config:cache
           php artisan route:cache
           sudo systemctl reload php8.3-fpm nginx
