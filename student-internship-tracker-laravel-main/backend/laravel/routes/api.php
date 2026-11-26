@@ -70,3 +70,9 @@ Route::middleware('auth:api')->group(function () {
     Route::get('conversations/{id}/messages', [MessageController::class, 'messages']);
     Route::post('conversations/{id}/messages', [MessageController::class, 'send']);
 });
+
+// Health check (used by the CD pipeline)
+Route::get('health', \App\Http\Controllers\HealthController::class);
+
+// Health check (used by the CD pipeline)
+Route::get('health', \App\Http\Controllers\HealthController::class);
