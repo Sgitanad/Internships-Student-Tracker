@@ -1,6 +1,6 @@
 ---
 - name: Préparer la VM 1 (application web)
-  hosts: all
+  hosts: web
   become: true
   vars:
     deploy_user: azureuser
