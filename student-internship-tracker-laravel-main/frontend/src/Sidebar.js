@@ -59,7 +59,7 @@ function Sidebar({ activePage = "" }) {
         </div>
         <div className="pro-brand-text">
           <span className="pro-brand-name">InternTrack</span>
-          <span className="pro-brand-sub">Academic Platform</span>
+          <span className="pro-brand-sub">Academic Platform - deployed by CD</span>
         </div>
       </div>
 
