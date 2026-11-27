@@ -55,6 +55,9 @@ jobs:
       - name: Installer les dépendances
         run: npm ci
 
+      - name: Lint (ESLint)
+        run: npx eslint src --ext .js,.jsx
+
       - name: Tests Jest
         env:
           CI: true
