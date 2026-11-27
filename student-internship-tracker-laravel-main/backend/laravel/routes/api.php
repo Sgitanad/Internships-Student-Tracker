@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\DemandeEncadrementController;
 use App\Http\Controllers\CommentaireController;
 use App\Http\Controllers\DeadlineController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RapportController;
@@ -70,3 +71,6 @@ Route::middleware('auth:api')->group(function () {
     Route::get('conversations/{id}/messages', [MessageController::class, 'messages']);
     Route::post('conversations/{id}/messages', [MessageController::class, 'send']);
 });
+
+// Health check (used by the CD pipeline)
+Route::get('health', HealthController::class);
