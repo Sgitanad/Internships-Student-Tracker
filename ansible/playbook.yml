@@ -57,6 +57,9 @@
     - name: Configuration Nginx du site
       ansible.builtin.copy:
         dest: /etc/nginx/sites-available/tracker
+        owner: root
+        group: root
+        mode: "0644"
         content: |
           server {
               listen 80;
