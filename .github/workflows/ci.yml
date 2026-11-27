@@ -65,4 +65,18 @@ jobs:
           CI: false
           REACT_APP_API_URL: /api
         run: npm run build
-        
+
+  ansible:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Installer ansible-lint
+        run: pip install ansible-core ansible-lint
+
+      - name: Lint (ansible-lint)
+        run: ansible-lint ansible/playbook.yml
