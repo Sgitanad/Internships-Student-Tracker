@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\DemandeEncadrementController;
 use App\Http\Controllers\CommentaireController;
 use App\Http\Controllers\DeadlineController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RapportController;
@@ -72,7 +73,4 @@ Route::middleware('auth:api')->group(function () {
 });
 
 // Health check (used by the CD pipeline)
-Route::get('health', \App\Http\Controllers\HealthController::class);
-
-// Health check (used by the CD pipeline)
-Route::get('health', \App\Http\Controllers\HealthController::class);
+Route::get('health', HealthController::class);
