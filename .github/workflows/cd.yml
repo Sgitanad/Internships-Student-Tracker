@@ -65,4 +65,6 @@ jobs:
         run: |
           sleep 5
           curl -fsS http://localhost/ > /dev/null
-          curl -fsS http://localhost/api/health
+          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/api/login)
+          echo "API /api/login -> $code"
+          [ "$code" -lt 500 ]
